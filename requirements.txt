@@ -13,3 +13,5 @@ py-cord
 pyscreeze
 opencv-python-headless~=4.7
 python-dotenv 
+easyocr
+numpy
