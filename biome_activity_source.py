@@ -987,7 +987,7 @@ class BiomePresence():
         theme_combobox.pack(side="left")
         theme_combobox.bind("<<ComboboxSelected>>", lambda e: self.update_theme(theme_combobox.get()))
 
-        body_pane = ttk.PanedWindow(self.root, orient="horizontal")
+        body_pane = ttk.Panedwindow(self.root, orient="horizontal")
         body_pane.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         nav_frame = ttk.Frame(body_pane, width=220)
@@ -6335,6 +6335,32 @@ class BiomePresence():
         finally:
             self.on_auto_merchant_state = False
 
+    def get_duration(self, biome):
+        # Specify 0 if biome has no duration
+
+        biome_data = {
+            "NORMAL": 0,
+            "WINDY": 120,
+            "RAINY": 120,
+            "SNOWY": 0,
+            "SAND STORM": 650,
+            "HELL": 666,
+            "STARFALL": 600,
+            "CORRUPTION": 650,
+            "NULL": 99,
+            "GLITCHED": 164,
+            "DREAMSPACE": 192,
+            "AURORA": 300,
+            "HEAVEN": 240,
+            "CYBERSPACE": 720
+        }
+        
+        # Returns the integer duration, or 0 if the biome name is not found
+        return biome_data.get(biome.upper(), 0)
+
+# Example usage:
+# duration = self.get_duration("SAND STORM") # returns 650
+
     def send_webhook(self, biome, message_type, event_type):
         urls = self.get_webhook_list()
         if not urls:
@@ -6343,9 +6369,13 @@ class BiomePresence():
         if message_type == "None": return
         biome_info = self.biome_data[biome]
         biome_color = int(biome_info["color"], 16)
+        print(str(biome))
+        biome_duration = int(self.get_duration(str(biome)))
         current_utc_time = datetime.now(timezone.utc)
         current_utc_time.replace(microsecond=0).isoformat(timespec='seconds') + 'Z'
         current_utc_time = str(current_utc_time)
+        unix_stamp = str(int(time.time() + biome_duration))
+        print(unix_stamp)
         icon_url = "https://i.postimg.cc/rsXpGncL/Noteab-Biome-Tracker.png"
         content = ""
         if event_type == "start" and biome in rare_biomes:
@@ -6354,7 +6384,10 @@ class BiomePresence():
         if private_server_link == "":
             description = f"> ## Biome Started - {biome} \nNo link provided (ManasAarohi ate the link blame him)" if event_type == "start" else f"> ### Biome Ended - {biome}"
         else:
-            description = f"> ## Biome Started - {biome} \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
+            if biome_duration != 0:
+                description = f"> ## Biome Started - {biome} \n> ### Ends <t:{unix_stamp}:R> (approx.) \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
+            else:
+                description = f"> ## Biome Started - {biome} \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
         embed = {
             "description": description,
             "color": biome_color,

@@ -1,60 +1,74 @@
 {
     "NORMAL": {
         "color": "0xffffff",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/NORMAL.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/NORMAL.png",
+        "duration": "0"
     },
 
     "WINDY": {
         "color": "0x9ae5ff",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/WINDY.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/WINDY.png",
+        "duration": "120"
     },
     "RAINY": {
         "color": "0x027cbd",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/RAINY.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/RAINY.png",
+        "duration": "120"
     },
     "SNOWY": {
         "color": "0xDceff9",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/SNOWY.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/SNOWY.png",
+        "duration": "0"
     },
     "SAND STORM": {
         "color": "0x8F7057",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/SAND%20STORM.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/SAND%20STORM.png",
+        "duration": "650"
     },
     "HELL": {
         "color": "0xff4719",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/HELL.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/HELL.png",
+        "duration": "666"
     },
     "STARFALL": {
         "color": "0x011ab7",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/STARFALL.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/STARFALL.png",
+        "duration": "600"
     },
     "CORRUPTION": {
         "color": "0x6d32a8",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/CORRUPTION.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/CORRUPTION.png",
+        "duration": "650"
     },
     "NULL": {
         "color": "0x838383",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/NULL.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/NULL.png",
+        "duration": "99"
     },
     "GLITCHED": {
         "color": "0xbfff00",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/GLITCHED.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/GLITCHED.png",
+        "duration": "164"
     },
     "DREAMSPACE": {
         "color": "0xea9dda",
-        "thumbnail_url": "http://github.com/xVapure/Noteab-Macro/blob/main/images/Screenshot_2026-01-03_021107.png?raw=true"
+        "thumbnail_url": "http://github.com/xVapure/Noteab-Macro/blob/main/images/Screenshot_2026-01-03_021107.png?raw=true",
+        "duration": "192"
     },
     "AURORA": {
         "color": "0x0047ab",
-        "thumbnail_url": "https://raw.githubusercontent.com/vexthecoder/OysterDetector/main/assets/aurora.png"
+        "thumbnail_url": "https://raw.githubusercontent.com/vexthecoder/OysterDetector/main/assets/aurora.png",
+        "duration": "300"
     },
     "HEAVEN": {
         "color": "0xFFE8A0",
-        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/HEAVEN.png"
+        "thumbnail_url": "https://maxstellar.github.io/biome_thumb/HEAVEN.png",
+        "duration": "240"
     },
     "CYBERSPACE": {
         "color": "0x0A1A3D",
-        "thumbnail_url": "https://raw.githubusercontent.com/xVapure/Noteab-Macro/refs/heads/main/images/CYBERSPACE.png"
+        "thumbnail_url": "https://raw.githubusercontent.com/xVapure/Noteab-Macro/refs/heads/main/images/CYBERSPACE.png",
+        "duration": "720"
     }
 }
 
