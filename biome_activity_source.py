@@ -1,6 +1,6 @@
 import traceback
 import pygetwindow as gw
-from tkinter import messagebox, filedialog, simpledialog
+from tkinter import messagebox, filedialog
 import tkinter as tk
 from PIL import Image, ImageTk
 from datetime import datetime, timedelta, timezone
@@ -14,191 +14,228 @@ import json, requests, time, os, threading, re, webbrowser, random, keyboard, py
 
 current_ver = "v2.0.5-hotfix1"
 
+
 def apply_fast_flags(version=None, force=False):
-    config_paths = [
+    # ... existing code ...
+    CONFIG_CANDIDATES = (
         "config.json",
         "source_code/config.json",
         os.path.join(os.path.dirname(__file__), "config.json"),
-        os.path.join(os.path.dirname(__file__), "source_code/config.json")
-    ]
-    config = {}
-    config_path = None
-    for p in config_paths:
-        if os.path.exists(p):
-            try:
-                with open(p, "r", encoding="utf-8") as cf:
-                    config = json.load(cf)
-                config_path = p
-                break
-            except Exception:
-                config = {}
-                config_path = p
-                break
+        os.path.join(os.path.dirname(__file__), "source_code/config.json"),
+    )
+    DEFAULT_CONFIG_PATH = "config.json"
+    VERSIONS_DIR = os.path.expandvars(r"%localappdata%\Roblox\Versions")
+    CLIENT_SETTINGS_DIRNAME = "ClientSettings"
+    SETTINGS_FILENAME = "ClientAppSettings.json"
+    ROBLOX_EXE = "RobloxPlayerBeta.exe"
+    KEEP_BACKUPS = 5
 
-    if config_path is None:
-        config_path = "config.json"
-        config = {}
-
-    applied_versions = set(config.get("fastflags_applied_versions", []))
-
-    versions_directory = os.path.expandvars(r"%localappdata%\Roblox\Versions")
-    if not os.path.exists(versions_directory):
-        logging.error("Roblox Versions directory not found: %s", versions_directory)
-        print(f"Roblox versions directory not found: {versions_directory}")
-        return
-
-    version_folders = [d for d in os.listdir(versions_directory)
-                       if os.path.isdir(os.path.join(versions_directory, d)) and d.lower().startswith("version-")]
-    version_folders.sort()
-
-    if not version_folders:
-        logging.error("No valid Roblox version folders found in %s", versions_directory)
-        print(f"No Roblox versions found in {versions_directory}")
-        return
-
-    target_folders = []
-    if version:
-        if version in version_folders or os.path.isdir(os.path.join(versions_directory, version)):
-            target_folders = [version]
-        else:
-            target_folders = version_folders[:]
-    else:
-        target_folders = version_folders[:]
-    if not force:
-        to_apply = [ver for ver in target_folders if ver not in applied_versions]
-    else:
-        to_apply = target_folders[:]
-
-    if not to_apply:
-        print("FastFlags: nothing to do — all target versions already patched (per config).")
-        return
-
-    flags = {
+    FLAGS = {
         "DFFlagDebugPerfMode": "True",
         "FFlagHandleAltEnterFullscreenManually": "False",
         "FStringDebugLuaLogPattern": "ExpChat/mountClientApp",
-        "FStringDebugLuaLogLevel": "trace"
+        "FStringDebugLuaLogLevel": "trace",
     }
 
-    keep_backups = 5
-    success_count = 0
-    failures = []
+    def _load_config():
+        for candidate in CONFIG_CANDIDATES:
+            if not os.path.exists(candidate):
+                continue
+            try:
+                with open(candidate, "r", encoding="utf-8") as cf:
+                    return json.load(cf), candidate
+            except Exception:
+                # If the file exists but can't be parsed/read, keep behavior:
+                # treat as empty config but still persist back to this same path.
+                return {}, candidate
+        return {}, DEFAULT_CONFIG_PATH
 
-    for ver in to_apply:
-        clientsettings_directory = os.path.join(versions_directory, ver, "ClientSettings")
+    def _get_version_folders(versions_dir: str):
+        if not os.path.exists(versions_dir):
+            logging.error("Roblox Versions directory not found: %s", versions_dir)
+            print(f"Roblox versions directory not found: {versions_dir}")
+            return []
+
+        folders = [
+            d
+            for d in os.listdir(versions_dir)
+            if os.path.isdir(os.path.join(versions_dir, d)) and d.lower().startswith("version-")
+        ]
+        folders.sort()
+        if not folders:
+            logging.error("No valid Roblox version folders found in %s", versions_dir)
+            print(f"No Roblox versions found in {versions_dir}")
+        return folders
+
+    def _rotate_backups(settings_path: str, timestamp: str):
+        if not os.path.exists(settings_path):
+            return
         try:
-            os.makedirs(clientsettings_directory, exist_ok=True)
+            backup_name = settings_path + ".bak." + timestamp
+            shutil.copy2(settings_path, backup_name)
+            backups = sorted(
+                glob.glob(settings_path + ".bak.*"),
+                key=os.path.getmtime,
+                reverse=True,
+            )
+            for old in backups[KEEP_BACKUPS:]:
+                try:
+                    os.remove(old)
+                except Exception:
+                    pass
         except Exception as e:
-            logging.exception("Failed to create ClientSettings directory %s: %s", clientsettings_directory, e)
-            failures.append(ver)
-            continue
+            logging.exception("Failed to create/rotate backup for %s: %s", settings_path, e)
 
-        settings_path = os.path.join(clientsettings_directory, "ClientAppSettings.json")
+    def _read_settings_json(settings_path: str, timestamp: str):
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            try:
+                corrupt_name = settings_path + ".corrupt." + timestamp
+                shutil.copy2(settings_path, corrupt_name)
+            except Exception:
+                pass
+            return {}
+        except FileNotFoundError:
+            return {}
+        except Exception as e:
+            logging.exception("Error reading %s: %s", settings_path, e)
+            raise
+
+    def _atomic_write_json(path: str, data: dict, timestamp: str):
+        tmp_path = path + ".tmp." + timestamp
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as tf:
+                json.dump(data, tf, indent=4)
+                tf.write("\n")
+            os.replace(tmp_path, path)
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
+
+    def _patch_version(versions_dir: str, ver: str):
+        client_settings_dir = os.path.join(versions_dir, ver, CLIENT_SETTINGS_DIRNAME)
+        try:
+            os.makedirs(client_settings_dir, exist_ok=True)
+        except Exception as e:
+            logging.exception("Failed to create ClientSettings directory %s: %s", client_settings_dir, e)
+            return False
+
+        settings_path = os.path.join(client_settings_dir, SETTINGS_FILENAME)
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
 
         try:
-            if os.path.exists(settings_path):
-                try:
-                    backup_name = settings_path + ".bak." + ts
-                    shutil.copy2(settings_path, backup_name)
-                    backups = sorted(glob.glob(settings_path + ".bak.*"), key=os.path.getmtime, reverse=True)
-                    for old in backups[keep_backups:]:
-                        try:
-                            os.remove(old)
-                        except Exception:
-                            pass
-                except Exception as e:
-                    logging.exception("Failed to create/rotate backup for %s: %s", settings_path, e)
-
-            try:
-                with open(settings_path, "r", encoding="utf-8") as f:
-                    existing_data = json.load(f)
-            except json.JSONDecodeError:
-                try:
-                    corrupt_name = settings_path + ".corrupt." + ts
-                    shutil.copy2(settings_path, corrupt_name)
-                except Exception:
-                    pass
-                existing_data = {}
-            except FileNotFoundError:
-                existing_data = {}
-            except Exception as e:
-                logging.exception("Error reading %s: %s", settings_path, e)
-                failures.append(ver)
-                continue
-            existing_data.update(flags)
-
-            tmp_path = settings_path + ".tmp." + ts
-            try:
-                with open(tmp_path, "w", encoding="utf-8") as tf:
-                    json.dump(existing_data, tf, indent=4)
-                    tf.write("\n")
-                os.replace(tmp_path, settings_path)
-            finally:
-                if os.path.exists(tmp_path):
-                    try:
-                        os.remove(tmp_path)
-                    except Exception:
-                        pass
-
-            success_count += 1
-            applied_versions.add(ver)
-
+            _rotate_backups(settings_path, ts)
+            existing_data = _read_settings_json(settings_path, ts)
+            existing_data.update(FLAGS)
+            _atomic_write_json(settings_path, existing_data, ts)
+            return True
         except Exception as e:
             logging.exception("Failed to apply FastFlags to %s: %s", ver, e)
-            failures.append(ver)
-    try:
-        config["fastflags_applied_versions"] = sorted(list(applied_versions))
-        config["fastflags_last_applied"] = datetime.now().isoformat()
-        tmp_cfg = config_path + ".tmp"
-        with open(tmp_cfg, "w", encoding="utf-8") as tf:
-            json.dump(config, tf, indent=4)
-            tf.write("\n")
-        os.replace(tmp_cfg, config_path)
-    except Exception as e:
-        logging.exception("Failed to save config.json with fastflags_applied_versions: %s", e)
-        print("Warning: failed to persist fastflags_applied_versions to config file:", e)
+            return False
 
-    print(f"Applied FastFlags to {success_count} of {len(to_apply)} targeted Roblox version(s).")
-    if failures:
-        print("Failed to patch:", ", ".join(failures))
-        logging.error("Failed to patch versions: %s", failures)
+    def _save_config(cfg: dict, cfg_path: str, applied: set):
+        try:
+            cfg["fastflags_applied_versions"] = sorted(applied)
+            cfg["fastflags_last_applied"] = datetime.now().isoformat()
+            tmp_cfg = cfg_path + ".tmp"
+            with open(tmp_cfg, "w", encoding="utf-8") as tf:
+                json.dump(cfg, tf, indent=4)
+                tf.write("\n")
+            os.replace(tmp_cfg, cfg_path)
+        except Exception as e:
+            logging.exception("Failed to save config.json with fastflags_applied_versions: %s", e)
+            print("Warning: failed to persist fastflags_applied_versions to config file:", e)
 
-    if success_count > 0:
+    def _prompt_restart(success_count: int, versions_dir: str, version_folders: list[str]):
         try:
             restart_approve = messagebox.askyesno(
                 "Restart?",
-                f"FastFlags have been applied to {success_count} Roblox version(s).\nRoblox needs to restart for these changes to apply. Without these FFlags merchant detections log based & Eden detection won't work 😔\nRestart now?"
+                "FastFlags have been applied to "
+                f"{success_count} Roblox version(s).\n"
+                "Roblox needs to restart for these changes to apply. "
+                "Without these FFlags merchant detections log based & Eden detection won't work 😔\n"
+                "Restart now?",
             )
             if restart_approve:
                 try:
-                    for p in psutil.process_iter(['name']):
+                    for p in psutil.process_iter(["name"]):
                         try:
-                            if p.info.get('name') == 'RobloxPlayerBeta.exe':
+                            if p.info.get("name") == ROBLOX_EXE:
                                 p.kill()
                         except Exception:
                             pass
                 except Exception as e:
                     logging.exception("Error terminating Roblox processes: %s", e)
+
                 latest = version_folders[-1] if version_folders else None
                 if latest:
-                    exe_path = os.path.join(versions_directory, latest, "RobloxPlayerBeta.exe")
+                    exe_path = os.path.join(versions_dir, latest, ROBLOX_EXE)
                     try:
                         if os.path.exists(exe_path):
                             os.startfile(exe_path)
                     except Exception as e:
                         logging.exception("Failed to restart Roblox player: %s", e)
+
                 messagebox.showinfo(
                     "Patched",
-                    "Patched Roblox ClientAppSettings.json files. Roblox should have restarted. If it didn't, please restart Roblox manually."
+                    "Patched Roblox ClientAppSettings.json files. Roblox should have restarted. "
+                    "If it didn't, please restart Roblox manually.",
                 )
             else:
                 messagebox.showwarning(
                     "Reminder",
-                    "Roblox will need to restart to apply the new flags. Please restart Roblox and the macro as soon as convenient."
+                    "Roblox will need to restart to apply the new flags. "
+                    "Please restart Roblox and the macro as soon as convenient.",
                 )
         except Exception as e:
             logging.exception("Error prompting restart: %s", e)
+
+    config, config_path = _load_config()
+    applied_versions = set(config.get("fastflags_applied_versions", []))
+
+    version_folders = _get_version_folders(VERSIONS_DIR)
+    if not version_folders:
+        return
+
+    if version and (version in version_folders or os.path.isdir(os.path.join(VERSIONS_DIR, version))):
+        target_versions = [version]
+    else:
+        target_versions = list(version_folders)
+
+    versions_to_patch = (
+        [ver for ver in target_versions if ver not in applied_versions]
+        if not force
+        else list(target_versions)
+    )
+    if not versions_to_patch:
+        print("FastFlags: nothing to do — all target versions already patched (per config).")
+        return
+
+    success_count = 0
+    failures = []
+
+    for ver in versions_to_patch:
+        if _patch_version(VERSIONS_DIR, ver):
+            success_count += 1
+            applied_versions.add(ver)
+        else:
+            failures.append(ver)
+
+    _save_config(config, config_path, applied_versions)
+
+    print(f"Applied FastFlags to {success_count} of {len(versions_to_patch)} targeted Roblox version(s).")
+    if failures:
+        print("Failed to patch:", ", ".join(failures))
+        logging.error("Failed to patch versions: %s", failures)
+
+    if success_count > 0:
+        _prompt_restart(success_count, VERSIONS_DIR, version_folders)
+    # ... existing code ...
 
 rare_biomes = ["GLITCHED", "DREAMSPACE", "CYBERSPACE"]
 
