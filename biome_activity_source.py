@@ -4703,11 +4703,38 @@ class BiomePresence():
 
     ## INVENTORY SNIPPING ##
 
-    def open_assign_inventory_window(self):
+    def open_assignment_window(self, title, window_geometry, positions):
         assign_window = ttk.Toplevel(self.root)
-        assign_window.title("Inventory Coordinates")
-        assign_window.geometry("650x500")
+        assign_window.title(title)
+        assign_window.geometry(window_geometry)
 
+        coord_vars = {}
+
+        for i, (label_text, config_key) in enumerate(positions):
+            label = ttk.Label(assign_window, text=f"{label_text} (X, Y):")
+            label.grid(row=i, column=0, padx=5, pady=5, sticky="w")
+
+            x_var = ttk.IntVar(value=self.config.get(config_key, [0, 0])[0])
+            y_var = ttk.IntVar(value=self.config.get(config_key, [0, 0])[1])
+            coord_vars[config_key] = (x_var, y_var)
+
+            x_entry = ttk.Entry(assign_window, textvariable=x_var, width=6)
+            x_entry.grid(row=i, column=1, padx=5, pady=5)
+
+            y_entry = ttk.Entry(assign_window, textvariable=y_var, width=6)
+            y_entry.grid(row=i, column=2, padx=5, pady=5)
+
+            select_button = ttk.Button(
+                assign_window, text="Assign Click",
+                command=lambda key=config_key: self.start_capture_thread(key, coord_vars)
+            )
+            select_button.grid(row=i, column=3, padx=5, pady=5)
+
+        save_button = ttk.Button(assign_window, text="Save",
+                                 command=lambda: self.save_inventory_coordinates(assign_window, coord_vars))
+        save_button.grid(row=len(positions), column=0, columnspan=4, pady=10)
+
+    def open_assign_inventory_window(self):
         positions = [
             ("Inventory Menu", "inventory_menu"),
             ("Items Tab", "items_tab"),
@@ -4719,37 +4746,10 @@ class BiomePresence():
             ("Inventory close button \"x\"", "inventory_close_button"),
             ("'START' button (for reconnect feature, \n the one above 'Update Logs' button)", "reconnect_start_button")
         ]
-
-        coord_vars = {}
-
-        for i, (label_text, config_key) in enumerate(positions):
-            label = ttk.Label(assign_window, text=f"{label_text} (X, Y):")
-            label.grid(row=i, column=0, padx=5, pady=5, sticky="w")
-
-            x_var = ttk.IntVar(value=self.config.get(config_key, [0, 0])[0])
-            y_var = ttk.IntVar(value=self.config.get(config_key, [0, 0])[1])
-            coord_vars[config_key] = (x_var, y_var)
-
-            x_entry = ttk.Entry(assign_window, textvariable=x_var, width=6)
-            x_entry.grid(row=i, column=1, padx=5, pady=5)
-
-            y_entry = ttk.Entry(assign_window, textvariable=y_var, width=6)
-            y_entry.grid(row=i, column=2, padx=5, pady=5)
-
-            select_button = ttk.Button(
-                assign_window, text="Assign Click",
-                command=lambda key=config_key: self.start_capture_thread(key, coord_vars)
-            )
-            select_button.grid(row=i, column=3, padx=5, pady=5)
-
-        save_button = ttk.Button(assign_window, text="Save",
-                                 command=lambda: self.save_inventory_coordinates(assign_window, coord_vars))
-        save_button.grid(row=len(positions), column=0, columnspan=4, pady=10)
+        
+        self.open_assignment_window("Inventory Coordinates", "650x500", positions)
 
     def open_assign_potion_craft_window(self):
-        assign_window = ttk.Toplevel(self.root)
-        assign_window.title("Potion Craft Coordinates")
-        assign_window.geometry("720x340")
 
         positions = [
             ("Craft Button", "craft_button"),
@@ -4760,31 +4760,7 @@ class BiomePresence():
             ("4th add button ('Quartz' add button in Heavenly Potion craft recipe as instance)", "4th_add_button"),
         ]
 
-        coord_vars = {}
-
-        for i, (label_text, config_key) in enumerate(positions):
-            label = ttk.Label(assign_window, text=f"{label_text} (X, Y):")
-            label.grid(row=i, column=0, padx=5, pady=5, sticky="w")
-
-            x_var = ttk.IntVar(value=self.config.get(config_key, [0, 0])[0])
-            y_var = ttk.IntVar(value=self.config.get(config_key, [0, 0])[1])
-            coord_vars[config_key] = (x_var, y_var)
-
-            x_entry = ttk.Entry(assign_window, textvariable=x_var, width=6)
-            x_entry.grid(row=i, column=1, padx=5, pady=5)
-
-            y_entry = ttk.Entry(assign_window, textvariable=y_var, width=6)
-            y_entry.grid(row=i, column=2, padx=5, pady=5)
-
-            select_button = ttk.Button(
-                assign_window, text="Assign Click",
-                command=lambda key=config_key: self.start_capture_thread(key, coord_vars)
-            )
-            select_button.grid(row=i, column=3, padx=5, pady=5)
-
-        save_button = ttk.Button(assign_window, text="Save",
-                                 command=lambda: self.save_inventory_coordinates(assign_window, coord_vars))
-        save_button.grid(row=len(positions), column=0, columnspan=4, pady=10)
+        self.open_assignment_window("Potion Craft Coordinates", "720x340", positions)
 
     def save_inventory_coordinates(self, window, coord_vars):
         for key, (x_var, y_var) in coord_vars.items():
