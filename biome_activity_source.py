@@ -12,7 +12,7 @@ import difflib
 import json, requests, time, os, threading, re, webbrowser, random, keyboard, pyautogui, pytesseract, autoit, psutil, \
     locale, win32gui, win32process, win32con, ctypes, queue, mouse, sys
 
-current_ver = "v2.0.5-hotfix1"
+current_ver = "v2.0.5-hotfix1 (Modded)"
 
 
 def apply_fast_flags(version=None, force=False):
@@ -81,8 +81,8 @@ def apply_fast_flags(version=None, force=False):
             for old in backups[KEEP_BACKUPS:]:
                 try:
                     os.remove(old)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to remove old backup %s: %s", old, e)
         except Exception as e:
             logging.exception("Failed to create/rotate backup for %s: %s", settings_path, e)
 
@@ -94,8 +94,8 @@ def apply_fast_flags(version=None, force=False):
             try:
                 corrupt_name = settings_path + ".corrupt." + timestamp
                 shutil.copy2(settings_path, corrupt_name)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to create corrupt backup %s: %s", corrupt_name, e)
             return {}
         except FileNotFoundError:
             return {}
@@ -114,8 +114,8 @@ def apply_fast_flags(version=None, force=False):
             if os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to remove temporary file %s: %s", tmp_path, e)
 
     def _patch_version(versions_dir: str, ver: str):
         client_settings_dir = os.path.join(versions_dir, ver, CLIENT_SETTINGS_DIRNAME)
@@ -167,8 +167,8 @@ def apply_fast_flags(version=None, force=False):
                         try:
                             if p.info.get("name") == ROBLOX_EXE:
                                 p.kill()
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Error terminating Roblox process: %s", e)
                 except Exception as e:
                     logging.exception("Error terminating Roblox processes: %s", e)
 
@@ -340,29 +340,29 @@ class ActionScheduler:
                                 sys.exc_info(),
                                 f"Error executing scheduled action {name}"
                             )
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Error logging error executing scheduled action %s: %s", name, e)
                 finally:
                     try:
                         self._action_lock.release()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Error releasing action lock: %s", e)
                     self._action_active.clear()
 
             except Exception:
                 self._action_active.clear()
                 try:
                     self._action_lock.release()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Error releasing action lock: %s", e)
 
     def stop(self):
         self._running = False
         try:
             while not self._pq.empty():
                 self._pq.get_nowait()
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Error stopping ActionScheduler: %s", e)
 
 class BiomePresence():
     def __init__(self):
@@ -461,13 +461,13 @@ class BiomePresence():
                     if fname.startswith(("merchant_", "aura_", "inventory_", "quest", "remote_")):
                         try:
                             os.remove(os.path.join(screenshot_dir, fname))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to remove screenshot %s: %s", fname, e)
         except Exception as e:
             try:
                 self.error_logging(e, "Error deleting merchant images on startup")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to log error deleting merchant images on startup: %s", e)
 
         # start gui
         self.variables = {}
@@ -476,8 +476,8 @@ class BiomePresence():
         try:
             keyboard.add_hotkey('f1', lambda: self.start_detection() if not self.detection_running else None)
             keyboard.add_hotkey('f3', lambda: self.stop_detection() if self.detection_running else None)
-        except Exception:
-             pass
+        except Exception as e:
+             logging.exception("Failed to add hotkeys: %s", e)
 
         # aura detection:
         self.last_aura_found = None
@@ -583,8 +583,8 @@ class BiomePresence():
                             data[biome_name]["color"] = overrides["color"]
                         if "thumbnail_url" in overrides and overrides["thumbnail_url"]:
                             data[biome_name]["thumbnail_url"] = overrides["thumbnail_url"]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to apply custom biome override for %s: %s", biome_name, e)
 
         return data
 
@@ -677,8 +677,8 @@ class BiomePresence():
             try:
                 if hasattr(self, "player_log_queue") and self.player_log_queue:
                     self.player_log_queue.put(None)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Error putting None into player_log_queue: %s", e)
             if getattr(self, 'has_started_once', False):
                 if self.start_time:
                     now = datetime.now()
@@ -686,8 +686,8 @@ class BiomePresence():
                     self.saved_session += elapsed
                     self.start_time = None
                 self.save_config()
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Error in _on_exit_handler: %s", e)
 
     def save_logs(self):
         log_file_path = 'macro_logs.txt'
@@ -930,10 +930,10 @@ class BiomePresence():
                         self.potion_file_var.set(config.get("potion_last_file", ""))
                 try:
                     self._refresh_potion_files("crafting_files_do_not_open")
-                except Exception:
-                    pass
-            except Exception:
-                pass
+                except Exception as e:
+                    logging.exception("Failed to refresh potion files: %s", e)
+            except Exception as e:
+                logging.exception("Failed to load potion configuration: %s", e)
                 if "potion_file2" in config:
                     if hasattr(self, "potion2_var"): self.potion2_var.set(config.get("potion_file2", ""))
                 if "potion_file3" in config:
@@ -969,8 +969,8 @@ class BiomePresence():
         self.root.minsize(900, 600)
         try:
             self.root.iconbitmap(icon_path)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to set icon: %s", e)
 
         self.variables = {
             biome: ttk.StringVar(master=self.root, value=self.config.get("biome_notifier", {}).get(biome, "Message"))
@@ -989,12 +989,12 @@ class BiomePresence():
             finally:
                 try:
                     self.status_label.config(text="Status: Running")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to update status label: %s", e)
             try:
                 self.start_potion_crafting()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to start potion crafting: %s", e)
 
         def _stop_wrapper():
             try:
@@ -1002,8 +1002,8 @@ class BiomePresence():
             finally:
                 try:
                     self.status_label.config(text="Status: Idle")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to update status label: %s", e)
 
         start_btn = ttk.Button(header_left, text="Start (F1)", command=_start_wrapper, bootstyle="success")
         stop_btn = ttk.Button(header_left, text="Stop (F2)", command=_stop_wrapper, bootstyle="danger")
@@ -1092,11 +1092,11 @@ class BiomePresence():
                 for btn_name, btn in nav_buttons.items():
                     try:
                         btn.configure(bootstyle="outline-secondary")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to configure button bootstyle: %s", e)
                 nav_buttons[name].configure(bootstyle="primary")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to show frame %s: %s", name, e)
             for nm, fr in frames.items():
                 try:
                     if nm == name:
@@ -1104,12 +1104,12 @@ class BiomePresence():
                         fr.tkraise()
                     else:
                         fr.pack_forget()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to manage frame visibility: %s", e)
             try:
                 self.status_label.config(text=f"Status: Viewing — {name}")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to update status label: %s", e)
 
         for i, name in enumerate(frames.keys()):
             b = ttk.Button(nav_frame, text=name, width=22, command=lambda n=name: show_frame(n))
@@ -1430,13 +1430,13 @@ class BiomePresence():
                 token = self.remote_bot_token_var.get().strip()
                 if token:
                     self.start_remote_bot()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to start remote bot: %s", e)
         else:
             try:
                 self.stop_remote_bot()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to stop remote bot: %s", e)
 
     def start_remote_bot(self):
         if getattr(self, "remote_bot_thread", None) and self.remote_bot_thread and self.remote_bot_thread.is_alive():
@@ -1459,12 +1459,12 @@ class BiomePresence():
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     loop.run_until_complete(self.remote_bot_obj.close())
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to close remote bot: %s", e)
             self.remote_bot_obj = None
             self.remote_status_label.config(text="Bot: stopped")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to stop remote bot: %s", e)
 
     def _remote_bot_thread_func(self):
         try:
@@ -1487,31 +1487,32 @@ class BiomePresence():
                     if allowed_id_int and getattr(ctx.author, "id", None) != allowed_id_int:
                         try:
                             await ctx.respond("Unauthorized", ephemeral=True)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to unauthorized user: %s", e)
                         return
                     try:
                         if not self.config.get("auto_reconnect"):
                             try:
                                 await ctx.respond("Auto Reconnect is disabled. Enable it in settings to use /rejoin.", ephemeral=True)
-                            except Exception:
-                                pass
-                            return
-                    except Exception:
-                        pass
+                            except Exception as e:
+                                logging.exception("Failed to respond to rejoin request: %s", e)
+                                return
+                    except Exception as e:
+                        logging.exception("Failed to check auto reconnect status: %s", e)
+                        return
                     try:
                         self.remote_command_queue.put(("__rejoin__", ""))
                         try:
                             await ctx.respond("Queued rejoin — will close Roblox if running.", ephemeral=False)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to rejoin request: %s", e)
                     except Exception:
                         try:
                             await ctx.respond("Queue error", ephemeral=True)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to rejoin request: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to handle rejoin command: %s", e)
 
             @bot.slash_command(name="help", description="Helping u out with remote access features")
             async def help_cmd(ctx, page: Option(int, "Page number", required=False, default=1)):
@@ -1540,72 +1541,73 @@ class BiomePresence():
                     content = f"Help page {p}/{total}\n" + ("\n".join(lines) if lines else "No commands on this page")
                     try:
                         await ctx.respond(content, ephemeral=False)
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
+                    except Exception as e:
+                        logging.exception("Failed to respond to help command: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to handle help command: %s", e)
             @bot.slash_command(name="use", description="Use an item remotely")
             async def use(ctx, item: Option(str, "Item name"), amount: Option(int, "Amount", default=1)):
                 try:
                     if allowed_id_int and getattr(ctx.author, "id", None) != allowed_id_int:
                         try:
                             await ctx.respond("Unauthorized", ephemeral=True)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to unauthorized user: %s", e)
                         return
                     try:
                         self.remote_command_queue.put((str(item), int(amount)))
                         try:
                             await ctx.respond(f"Queued {item}, amount: {amount}", ephemeral=False)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to use command: %s", e)
                     except Exception:
                         try:
                             await ctx.respond("Queue error", ephemeral=True)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to use command: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to handle use command: %s", e)
             @bot.slash_command(name="check_merchant", description="Use merchant teleporter and check for merchant")
             async def check_merchant(ctx):
                 try:
                     if allowed_id_int and getattr(ctx.author, "id", None) != allowed_id_int:
                         try:
                             await ctx.respond("Unauthorized", ephemeral=True)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to unauthorized user: %s", e)
                         return
                     try:
                         uid = str(time.time()).replace(".", "")
                         self._remote_check_merchant_results[uid] = None
                         try:
                             await ctx.respond("Carrying out auto merchants and checking whether if a merchant has spawned...", ephemeral=False)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to check merchant command: %s", e)
                         try:
                             self.remote_command_queue.put(("__check_merchant__", uid))
-                        except Exception:
+                        except Exception as e:
+                            logging.exception("Failed to queue check merchant command: %s", e)
                             pass
                         try:
                             import asyncio
                             asyncio.create_task(self._remote_check_merchant_wait_and_edit(ctx, uid))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to create task for check merchant command: %s", e)
                     except Exception:
                         try:
                             await ctx.respond("Queue error", ephemeral=True)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to check merchant command: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to handle check merchant command: %s", e)
             @bot.slash_command(name="screenshot", description="Take current ingame screenshot and send to webhooks")
             async def screenshot(ctx, target: Option(str, """arguments: 'inventory' or 'aura', leave blank for full screen screenshot.""", required=False)):
                 try:
                     if allowed_id_int and getattr(ctx.author, "id", None) != allowed_id_int:
                         try:
                             await ctx.respond("Unauthorized", ephemeral=True)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to unauthorized user: %s", e)
                         return
                     try:
                         t = (str(target) or "").strip().lower()
@@ -1616,23 +1618,23 @@ class BiomePresence():
                         self.remote_command_queue.put(("__screenshot__", t))
                         try:
                             await ctx.respond(f"Queued screenshot ({t})", ephemeral=False)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to screenshot command: %s", e)
                     except Exception:
                         try:
                             await ctx.respond("Queue error", ephemeral=True)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to screenshot command: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to handle screenshot command: %s", e)
             @bot.slash_command(name="reroll_quest", description="Reroll a selected daily quest")
             async def reroll_quest(ctx, quest: Option(str, "Quest to reroll", choices=["Quest 1", "Quest 2", "Quest 3"])):
                 try:
                     if allowed_id_int and getattr(ctx.author, "id", None) != allowed_id_int:
                         try:
                             await ctx.respond("Unauthorized", ephemeral=True)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to unauthorized user: %s", e)
                         return
                     try:
                         q = (quest or "").strip().lower()
@@ -1646,36 +1648,36 @@ class BiomePresence():
                             self.remote_command_queue.put(("__reroll__", "1"))
                         try:
                             await ctx.respond(f"Queued reroll {quest}", ephemeral=False)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to reroll command: %s", e)
                     except Exception:
                         try:
                             await ctx.respond("Queue error", ephemeral=True)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to reroll command: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to handle reroll command: %s", e)
             try:
                 self.set_title_threadsafe(f"Coteab Macro {current_ver} (Remote bot starting)")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to set title: %s", e)
             try:
                 self.remote_status_label.config(text="Bot: running")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to update bot status: %s", e)
             worker = threading.Thread(target=self._remote_queue_worker, daemon=True)
             worker.start()
             try:
                 bot.run(token)
-            except Exception:
-                pass
-        except Exception:
-            pass
+            except Exception as e:
+                logging.exception("Failed to run remote bot: %s", e)
+        except Exception as e:
+            logging.exception("Failed to start remote bot: %s", e)
         finally:
             try:
                 self.remote_status_label.config(text="Bot: stopped")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to update bot status: %s", e)
             self.remote_bot_obj = None
             self.remote_worker_running = False
 
@@ -1702,10 +1704,10 @@ class BiomePresence():
                     except Exception:
                         try:
                             await ctx.respond("Merchant found!", ephemeral=False)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to merchant found: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to edit merchant found response: %s", e)
             elif result is False:
                 try:
                     try:
@@ -1713,10 +1715,10 @@ class BiomePresence():
                     except Exception:
                         try:
                             await ctx.respond("No merchant was found", ephemeral=False)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to merchant not found: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to edit merchant not found response: %s", e)
             else:
                 try:
                     try:
@@ -1724,20 +1726,20 @@ class BiomePresence():
                     except Exception:
                         try:
                             await ctx.respond("No merchant was found", ephemeral=False)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to respond to merchant not found: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to edit merchant not found response: %s", e)
             try:
                 if isinstance(self._remote_check_merchant_results, dict) and uid in self._remote_check_merchant_results:
                     try:
                         del self._remote_check_merchant_results[uid]
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-        except Exception:
-            pass
+                    except Exception as e:
+                        logging.exception("Failed to remove uid from remote check merchant results: %s", e)
+            except Exception as e:
+                logging.exception("Failed to handle remote check merchant results: %s", e)
+        except Exception as e:
+            logging.exception("Failed to wait for remote check merchant response: %s", e)
 
     def _remote_queue_worker(self):
         while getattr(self, "remote_worker_running", False):
@@ -1755,16 +1757,16 @@ class BiomePresence():
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue reroll command: %s", e)
                         continue
 
                     if getattr(self, "_br_sc_running", False) or getattr(self, "_mt_running", False) or getattr(self, "auto_pop_state", False) or getattr(self, "on_auto_merchant_state", False):
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue reroll command: %s", e)
                         continue
 
                     def _reroll_action():
@@ -1772,18 +1774,18 @@ class BiomePresence():
                             self._remote_running = True
                             try:
                                 self.remote_status_label.config(text=f"Bot: rerolling quest {amount}")
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to update bot status: %s", e)
                             try:
                                 self.perform_quest_reroll(amount)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to reroll quest: %s", e)
                         finally:
                             self._remote_running = False
                             try:
                                 self.remote_status_label.config(text="Bot: running")
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to update bot status: %s", e)
 
                     try:
                         self._action_scheduler.enqueue_action(_reroll_action, name=f"remote:reroll:{amount}", priority=6)
@@ -1791,8 +1793,8 @@ class BiomePresence():
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue reroll command: %s", e)
                     continue
 
                 if item_name == "__check_merchant__":
@@ -1801,16 +1803,16 @@ class BiomePresence():
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, uid))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue check merchant command: %s", e)
                         continue
 
                     if getattr(self, "_br_sc_running", False) or getattr(self, "_mt_running", False) or getattr(self, "auto_pop_state", False) or getattr(self, "on_auto_merchant_state", False):
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, uid))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue check merchant command: %s", e)
                         continue
 
                     def _check_merchant_action():
@@ -1818,8 +1820,8 @@ class BiomePresence():
                             self._remote_running = True
                             try:
                                 self.remote_status_label.config(text="Bot: checking merchant")
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to update bot status: %s", e)
                             try:
                                 snapshot = {}
                                 try:
@@ -1833,15 +1835,15 @@ class BiomePresence():
                                         except Exception:
                                             try:
                                                 self.use_merchant_teleporter()
-                                            except Exception:
-                                                pass
+                                            except Exception as e:
+                                                logging.exception("Failed to use merchant teleporter: %s", e)
                                     else:
                                         try:
                                             self.use_merchant_teleporter()
-                                        except Exception:
-                                            pass
-                                except Exception:
-                                    pass
+                                        except Exception as e:
+                                            logging.exception("Failed to use merchant teleporter: %s", e)
+                                except Exception as e:
+                                    logging.exception("Failed to check merchant teleporter: %s", e)
                                 found = False
                                 try:
                                     if hasattr(self, "last_merchant_sent"):
@@ -1851,25 +1853,25 @@ class BiomePresence():
                                                     if isinstance(k, tuple) and len(k) > 1 and k[1] == "ocr":
                                                         found = True
                                                         break
-                                                except Exception:
-                                                    pass
+                                                except Exception as e:
+                                                    logging.exception("Failed to check ocr merchant: %s", e)
                                 except Exception:
                                     found = False
                                 try:
                                     self._remote_check_merchant_results[uid] = True if found else False
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to set remote check merchant result: %s", e)
                             except Exception:
                                 try:
                                     self._remote_check_merchant_results[uid] = False
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to set remote check merchant result: %s", e)
                         finally:
                             self._remote_running = False
                             try:
                                 self.remote_status_label.config(text="Bot: running")
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to update bot status: %s", e)
 
                     try:
                         self._action_scheduler.enqueue_action(_check_merchant_action, name=f"remote:check_merchant:{uid}", priority=3)
@@ -1877,8 +1879,8 @@ class BiomePresence():
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, uid))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue check merchant command: %s", e)
                     continue
 
                 if item_name == "__rejoin__":
@@ -1886,16 +1888,16 @@ class BiomePresence():
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue rejoin command: %s", e)
                         continue
 
                     if getattr(self, "_br_sc_running", False) or getattr(self, "_mt_running", False) or getattr(self, "auto_pop_state", False) or getattr(self, "on_auto_merchant_state", False):
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue rejoin command: %s", e)
                         continue
 
                     def remote_rejoin_action():
@@ -1903,22 +1905,22 @@ class BiomePresence():
                             self._remote_running = True
                             try:
                                 self.remote_status_label.config(text="Bot: performing rejoin")
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to update bot status: %s", e)
                             try:
                                 if self.check_roblox_procs():
                                     try:
                                         self.terminate_roblox_processes()
-                                    except Exception:
-                                        pass
-                            except Exception:
-                                pass
+                                    except Exception as e:
+                                        logging.exception("Failed to terminate roblox processes: %s", e)
+                            except Exception as e:
+                                logging.exception("Failed to perform rejoin action: %s", e)
                         finally:
                             self._remote_running = False
                             try:
                                 self.remote_status_label.config(text="Bot: running")
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to update bot status: %s", e)
 
                     try:
                         self._action_scheduler.enqueue_action(remote_rejoin_action, name="remote:rejoin", priority=1)
@@ -1926,8 +1928,8 @@ class BiomePresence():
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue rejoin command: %s", e)
                     continue
 
                 if item_name == "__screenshot__":
@@ -1935,16 +1937,16 @@ class BiomePresence():
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue screenshot command: %s", e)
                         continue
 
                     if getattr(self, "_br_sc_running", False) or getattr(self, "_mt_running", False) or getattr(self, "auto_pop_state", False) or getattr(self, "on_auto_merchant_state", False):
                         try:
                             time.sleep(0.35)
                             self.remote_command_queue.put((item_name, amount))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to queue screenshot command: %s", e)
                         continue
 
                     requested = str(amount or "").lower()
@@ -1957,18 +1959,18 @@ class BiomePresence():
                                 self._remote_running = True
                                 try:
                                     self.remote_status_label.config(text="Bot: taking screenshot")
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to update bot status: %s", e)
                                 try:
                                     self.remote_take_and_send_screenshot()
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to take and send screenshot: %s", e)
                             finally:
                                 self._remote_running = False
                                 try:
                                     self.remote_status_label.config(text="Bot: running")
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to update bot status: %s", e)
 
                         try:
                             self._action_scheduler.enqueue_action(_screenshot_action, name="remote:screenshot", priority=0)
@@ -1976,8 +1978,8 @@ class BiomePresence():
                             try:
                                 time.sleep(0.35)
                                 self.remote_command_queue.put((item_name, amount))
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to queue screenshot command: %s", e)
                         continue
 
                     if requested == "inventory":
@@ -1986,18 +1988,18 @@ class BiomePresence():
                                 self._remote_running = True
                                 try:
                                     self.remote_status_label.config(text="Bot: taking inventory screenshot")
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to update bot status: %s", e)
                                 try:
                                     self.take_inventory_screenshot_now()
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to take inventory screenshot: %s", e)
                             finally:
                                 self._remote_running = False
                                 try:
                                     self.remote_status_label.config(text="Bot: running")
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to update bot status: %s", e)
 
                         try:
                             self._action_scheduler.enqueue_action(_inv_action, name="remote:screenshot:inventory", priority=3)
@@ -2005,8 +2007,8 @@ class BiomePresence():
                             try:
                                 time.sleep(0.35)
                                 self.remote_command_queue.put((item_name, amount))
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to queue screenshot command: %s", e)
                         continue
 
                     if requested == "aura":
@@ -2015,18 +2017,18 @@ class BiomePresence():
                                 self._remote_running = True
                                 try:
                                     self.remote_status_label.config(text="Bot: taking aura screenshot")
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to update bot status: %s", e)
                                 try:
                                     self.take_aura_screenshot_now()
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to take aura screenshot: %s", e)
                             finally:
                                 self._remote_running = False
                                 try:
                                     self.remote_status_label.config(text="Bot: running")
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to update bot status: %s", e)
 
                         try:
                             self._action_scheduler.enqueue_action(_aura_action, name="remote:screenshot:aura", priority=2)
@@ -2034,23 +2036,23 @@ class BiomePresence():
                             try:
                                 time.sleep(0.35)
                                 self.remote_command_queue.put((item_name, amount))
-                            except Exception:
-                                pass
+                            except Exceptio as e:
+                                logging.exception("Failed to queue screenshot command: %s", e)
                         continue
                 if not self.detection_running or self.reconnecting_state:
                     try:
                         time.sleep(0.35)
                         self.remote_command_queue.put((item_name, amount))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to queue reroll command: %s", e)
                     continue
 
                 if getattr(self, "_br_sc_running", False) or getattr(self, "_mt_running", False) or getattr(self, "auto_pop_state", False) or getattr(self, "on_auto_merchant_state", False):
                     try:
                         time.sleep(0.35)
                         self.remote_command_queue.put((item_name, amount))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to queue reroll command: %s", e)
                     continue
 
                 def _remote_action():
@@ -2058,18 +2060,18 @@ class BiomePresence():
                         self._remote_running = True
                         try:
                             self.remote_status_label.config(text=f"Bot: executing {item_name} x{amount}")
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to update bot status: %s", e)
                         try:
                             self.remote_use_item(item_name, amount)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to use item remotely: %s", e)
                     finally:
                         self._remote_running = False
                         try:
                             self.remote_status_label.config(text="Bot: running")
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to update bot status: %s", e)
 
                 try:
                     self._action_scheduler.enqueue_action(_remote_action, name=f"remote:{item_name}", priority=1)
@@ -2077,8 +2079,8 @@ class BiomePresence():
                     try:
                         time.sleep(0.35)
                         self.remote_command_queue.put((item_name, amount))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to queue reroll command: %s", e)
 
             except Exception:
                 time.sleep(0.2)
@@ -2101,8 +2103,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(inventory_menu[0], inventory_menu[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click inventory menu: %s", e)
                 time.sleep(0.35)
             if items_tab and items_tab[0]:
                 try:
@@ -2112,8 +2114,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(items_tab[0], items_tab[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click items tab: %s", e)
                 time.sleep(0.35)
             try:
                 os.makedirs("images", exist_ok=True)
@@ -2131,8 +2133,8 @@ class BiomePresence():
                     except Exception:
                         try:
                             self.Global_MouseClick(inventory_close_button[0], inventory_close_button[1])
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to click inventory close button: %s", e)
                     time.sleep(0.22)
             except Exception as e:
                 self.error_logging(e, "Error while closing inventory after forced screenshot")
@@ -2157,8 +2159,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(aura_menu[0], aura_menu[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click aura menu: %s", e)
                 time.sleep(0.67)
                 try:
                     os.makedirs("images", exist_ok=True)
@@ -2196,8 +2198,8 @@ class BiomePresence():
         except Exception:
             try:
                 keyboard.write(item_name.lower())
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to write item name to search bar: %s", e)
         time.sleep(0.22 + inventory_click_delay)
         first_item_slot = self.config.get("first_item_slot", [839, 434])
         self.Global_MouseClick(first_item_slot[0], first_item_slot[1])
@@ -2214,15 +2216,15 @@ class BiomePresence():
             try:
                 keyboard.send("backspace")
                 time.sleep(0.06 + inventory_click_delay)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to clear amount box: %s", e)
         try:
             autoit.send(str(amount))
         except Exception:
             try:
                 keyboard.write(str(amount))
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to write amount to amount box: %s", e)
         time.sleep(0.12 + inventory_click_delay)
         use_button = self.config.get("use_button", [995, 498])
         self.Global_MouseClick(use_button[0], use_button[1])
@@ -2257,8 +2259,8 @@ class BiomePresence():
                 except Exception as e:
                     try:
                         print(f"Failed to send screenshot to {webhook_url}: {e}")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to send screenshot to webhook: %s", e)
         except Exception as e:
             self.error_logging(e, "Error in send_screen_screenshot_webhook")
 
@@ -2280,8 +2282,8 @@ class BiomePresence():
                 self.send_screen_screenshot_webhook(filename)
             except Exception as e:
                 self.error_logging(e, "Error taking/sending remote screenshot")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Error in remote_take_and_send_screenshot: %s", e)
 
     def create_donations_tab(self, frame):
         t1 = "Our projects are 100% free to use and you're allowed to recycle any fraction of our code with proper credits. However, if you want to support our team, you can help us by purchasing any of the gamepasses below :)"
@@ -2382,8 +2384,8 @@ class BiomePresence():
                 self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
                 try:
                     self.bg_label.lower()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to lower background label: %s", e)
             else:
                 self.bg_label.config(image=self._bg_tk)
             cfg = {}
@@ -2400,8 +2402,8 @@ class BiomePresence():
             if hasattr(self, "_custom_bg_label"):
                 try:
                     self._custom_bg_label.config(text=f"Current background: {path}")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to update custom background label: %s", e)
             messagebox.showinfo("Background", "Background image applied and saved.")
         except Exception as e:
             self.error_logging(e, "Error applying background image")
@@ -2412,8 +2414,8 @@ class BiomePresence():
             if hasattr(self, "bg_label") and self.bg_label:
                 try:
                     self.bg_label.destroy()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to destroy background label: %s", e)
                 self.bg_label = None
             cfg = {}
             try:
@@ -2425,16 +2427,16 @@ class BiomePresence():
             if "custom_background_image" in cfg:
                 try:
                     del cfg["custom_background_image"]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to delete custom background image from config: %s", e)
             with open("config.json", "w", encoding="utf-8") as f:
                 json.dump(cfg, f, indent=4)
             self.config.pop("custom_background_image", None)
             if hasattr(self, "_custom_bg_label"):
                 try:
                     self._custom_bg_label.config(text="Current background: (none)")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to update custom background label: %s", e)
             messagebox.showinfo("Background", "Background image cleared.")
         except Exception as e:
             self.error_logging(e, "Error clearing background image")
@@ -2466,8 +2468,8 @@ class BiomePresence():
         def on_config(e):
             try:
                 canvas.configure(scrollregion=canvas.bbox("all"))
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to configure canvas scroll region: %s", e)
         inner.bind("<Configure>", on_config)
         vars_map = {}
         for i, biome in enumerate(self.biome_data.keys()):
@@ -2496,8 +2498,8 @@ class BiomePresence():
                             self.biome_data[biome]["color"] = color_val
                         if thumb_val:
                             self.biome_data[biome]["thumbnail_url"] = thumb_val
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to update biome data: %s", e)
             cfg = {}
             try:
                 if os.path.exists("config.json"):
@@ -2533,26 +2535,26 @@ class BiomePresence():
                 if hasattr(self, "ocr_cal_btn"):
                     try:
                         self.ocr_cal_btn.grid(row=8, column=0, padx=5, pady=5, sticky="w")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to re-add OCR calibration button: %s", e)
                 if hasattr(self, "first_item_slot_ocr_label"):
                     try:
                         self.first_item_slot_ocr_label.grid(row=8, column=1, padx=5, sticky="w")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to re-add first item slot OCR label: %s", e)
             else:
                 if hasattr(self, "ocr_cal_btn"):
                     try:
                         self.ocr_cal_btn.grid_forget()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to remove OCR calibration button: %s", e)
                 if hasattr(self, "first_item_slot_ocr_label"):
                     try:
                         self.first_item_slot_ocr_label.grid_forget()
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+                    except Exception as e:
+                        logging.exception("Failed to remove first item slot OCR label: %s", e)
+        except Exception as e:
+            logging.exception("Failed to manage OCR calibration and first item slot OCR label: %s", e)
         self.save_config()
 
     def capture_single_click(self, config_key):
@@ -2563,8 +2565,8 @@ class BiomePresence():
         win.focus_force()
         try:
             win.grab_set()
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to set grab for capture_single_click window: %s", e)
         def on_click(e):
             x, y = e.x_root, e.y_root
             self.config[config_key] = [x, y]
@@ -2587,13 +2589,13 @@ class BiomePresence():
                 if hasattr(self, "glitched_coord_vars") and config_key in self.glitched_coord_vars:
                     self.glitched_coord_vars[config_key][0].set(x)
                     self.glitched_coord_vars[config_key][1].set(y)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to update config for capture_single_click: %s", e)
             self.save_config()
             try:
                 win.grab_release()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to release grab for capture_single_click window: %s", e)
             win.destroy()
             messagebox.showinfo("Calibration Saved", f"Saved {config_key}: {[x, y]}")
         win.bind("<Button-1>", on_click)
@@ -2642,8 +2644,8 @@ class BiomePresence():
             keyboard.press_and_release('r')
             time.sleep(0.3)
             keyboard.press_and_release('enter')
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to perform reset on rare: %s", e)
 
     def _teleport_crack_impl(self):
         try:
@@ -2773,8 +2775,8 @@ class BiomePresence():
         for url in urls:
             try:
                 requests.post(url, json=payload, timeout=5)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to send embed to webhook: %s", e)
 
     def create_notice_tab(self, frame):
         txt = ttk.Text(frame, height=14, wrap="word")
@@ -2877,12 +2879,12 @@ class BiomePresence():
         self.save_config()
         try:
             win.destroy()
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to destroy pathing calibration window: %s", e)
         try:
             messagebox.showinfo("Calibration Saved", f"Saved pathing coordinates.")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to show pathing calibration saved message: %s", e)
 
     def create_misc_tab(self, frame):
         hp2_frame = ttk.Frame(frame)
@@ -3006,21 +3008,21 @@ class BiomePresence():
         if self.enable_ocr_failsafe_var.get():
             try:
                 self.ocr_cal_btn.grid(row=8, column=0, padx=5, pady=5, sticky="w")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to add OCR failsafe calibration button: %s", e)
             try:
                 self.first_item_slot_ocr_label.grid(row=8, column=1, padx=5, sticky="w")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to add first item slot OCR label: %s", e)
         else:
             try:
                 self.ocr_cal_btn.grid_forget()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to remove OCR failsafe calibration button: %s", e)
             try:
                 self.first_item_slot_ocr_label.grid_forget()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to remove first item slot OCR label: %s", e)
 
         self.periodical_aura_var = ttk.BooleanVar(value=self.config.get("periodical_aura_screenshot", False))
         periodical_aura_check = ttk.Checkbutton(
@@ -3093,8 +3095,8 @@ class BiomePresence():
                 except Exception as e:
                     try:
                         print(f"Failed to send quest screenshot to {webhook_url}: {e}")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to send quest screenshot webhook: %s", e)
         except Exception as e:
             self.error_logging(e, "Error in send_quest_screenshot_webhook")
 
@@ -3104,8 +3106,8 @@ class BiomePresence():
         except Exception:
             try:
                 self._perform_quest_claim_sequence_impl()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to perform quest claim sequence sync: %s", e)
 
     def _perform_quest_claim_sequence_impl(self):
         try:
@@ -3132,8 +3134,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(quest_menu[0], quest_menu[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click quest menu button: %s", e)
                 time.sleep(0.5)
 
             try:
@@ -3153,8 +3155,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(quest1[0], quest1[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click quest 1 button: %s", e)
                 time.sleep(0.5)
             if claim_btn and claim_btn[0]:
                 try:
@@ -3162,8 +3164,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(claim_btn[0], claim_btn[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click claim quest button: %s", e)
                 time.sleep(0.5)
 
             if quest2 and quest2[0]:
@@ -3172,8 +3174,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(quest2[0], quest2[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click quest 2 button: %s", e)
                 time.sleep(0.5)
             if claim_btn and claim_btn[0]:
                 try:
@@ -3181,8 +3183,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(claim_btn[0], claim_btn[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click claim quest button: %s", e)
                 time.sleep(0.5)
 
             if quest3 and quest3[0]:
@@ -3191,8 +3193,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(quest3[0], quest3[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click quest 3 button: %s", e)
                 time.sleep(0.5)
             if claim_btn and claim_btn[0]:
                 try:
@@ -3200,8 +3202,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(claim_btn[0], claim_btn[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click claim quest button: %s", e)
                 time.sleep(0.5)
             inventory_close_button = self.config.get("inventory_close_button", [1418, 298])
             try:
@@ -3211,11 +3213,11 @@ class BiomePresence():
                     except Exception:
                         try:
                             self.Global_MouseClick(inventory_close_button[0], inventory_close_button[1])
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to click inventory close button: %s", e)
                     time.sleep(0.3)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to close inventory: %s", e)
 
         except Exception as e:
             self.error_logging(e, "Error in perform_quest_claim_sequence_sync")
@@ -3282,8 +3284,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(collections_button[0], collections_button[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click collections button: %s", e)
                 time.sleep(0.3)
             exit_collections_button = self.config.get("exit_collections_button", [0, 0])
             if exit_collections_button and exit_collections_button[0]:
@@ -3292,8 +3294,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(exit_collections_button[0], exit_collections_button[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click exit collections button: %s", e)
                 time.sleep(0.3)
             current_x, current_y = autoit.mouse_get_pos()
             autoit.mouse_down("right")
@@ -3364,8 +3366,8 @@ class BiomePresence():
                     k = ev.get("key")
                     if k not in ("f3", "f4"):
                         keyboard.release(k)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to handle event: %s", e)
             last_t = t
 
     def perform_quest_reroll(self, quest_index):
@@ -3390,8 +3392,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(quest_menu[0], quest_menu[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to click quest menu button: %s", e)
                 time.sleep(0.5)
             try:
                 qbtn = quest1
@@ -3405,8 +3407,8 @@ class BiomePresence():
                     except Exception:
                         try:
                             self.Global_MouseClick(qbtn[0], qbtn[1])
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to click quest button: %s", e)
                     time.sleep(0.4)
                 if reroll_btn and reroll_btn[0]:
                     try:
@@ -3414,8 +3416,8 @@ class BiomePresence():
                     except Exception:
                         try:
                             self.Global_MouseClick(reroll_btn[0], reroll_btn[1])
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to click quest reroll button: %s", e)
                     time.sleep(0.45)
 
                 inventory_close_button = self.config.get("inventory_close_button", [1418, 298])
@@ -3426,18 +3428,18 @@ class BiomePresence():
                         except Exception:
                             try:
                                 self.Global_MouseClick(inventory_close_button[0], inventory_close_button[1])
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to click inventory close button: %s", e)
                         time.sleep(0.3)
-                except Exception:
-                    pass
-            except Exception:
-                pass
+                except Exception as e:
+                    logging.exception("Failed to close inventory: %s", e)
+            except Exception as e:
+                logging.exception("Failed to perform quest reroll: %s", e)
         except Exception as e:
             try:
                 self.error_logging(e, "Error in perform_quest_reroll")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to log quest reroll error: %s", e)
 
     def quest_claim_loop(self):
         last_claim_time = datetime.min
@@ -3629,12 +3631,12 @@ class BiomePresence():
         self.save_config()
         try:
             win.destroy()
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to destroy calibration window: %s", e)
         try:
             messagebox.showinfo("Calibration Saved", "Saved quest claim coordinates.")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to show calibration saved message: %s", e)
 
     def open_potion_craft_calibration_window(self):
         calibration_window = ttk.Toplevel(self.root)
@@ -3678,12 +3680,12 @@ class BiomePresence():
         self.save_config()
         try:
             win.destroy()
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to destroy potion calibration window: %s", e)
         try:
             messagebox.showinfo("Calibration Saved", "Saved potion craft coordinates.")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to show potion calibration saved message: %s", e)
 
     def open_glitched_buff_calibration_window(self):
         calibration_window = ttk.Toplevel(self.root)
@@ -3727,12 +3729,12 @@ class BiomePresence():
         self.save_config()
         try:
             win.destroy()
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to destroy glitched calibration window: %s", e)
         try:
             messagebox.showinfo("Calibration Saved", "Saved glitched buff coordinates.")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to show glitched calibration saved message: %s", e)
 
     def _refresh_potion_files(self, potions_directory="crafting_files_do_not_open"):
         try:
@@ -3766,8 +3768,8 @@ class BiomePresence():
                     else:
                         if not self.potion3_var.get() or self.potion3_var.get() not in values_with_none:
                             self.potion3_var.set("None")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to refresh potion files: %s", e)
             if self.potion_file_var.get() and self.potion_file_var.get() != "None":
                 self.config["potion_last_file"] = self.potion_file_var.get()
                 self.save_config()
@@ -3841,32 +3843,32 @@ class BiomePresence():
             if getattr(self, "_potion_kbd_hook", None):
                 try:
                     keyboard.unhook(self._potion_kbd_hook)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to unhook potion keyboard hook: %s", e)
             if getattr(self, "_potion_mouse_hook", None):
                 try:
                     mouse.unhook(self._potion_mouse_hook)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as e:
+                    logging.exception("Failed to unhook potion mouse hook: %s", e)
+        except Exception as e:
+            logging.exception("Failed to stop potion recording: %s", e)
 
         self._potion_kbd_hook = None
         self._potion_mouse_hook = None
         try:
             self.potion_mode_var.set("Idle")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to set potion mode to idle: %s", e)
         try:
             self.potion_rec_status.set("Stopped. Saving.")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to set potion recording status: %s", e)
 
         pot_dir = "crafting_files_do_not_open"
         try:
             os.makedirs(pot_dir, exist_ok=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to create potion directory: %s", e)
         pot_dir = "crafting_files_do_not_open"
         os.makedirs(pot_dir, exist_ok=True)
 
@@ -3908,8 +3910,8 @@ class BiomePresence():
                         filename = candidate
                         break
                     i += 1
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to handle potion file naming: %s", e)
 
         data = {
             "created": time.time(),
@@ -3925,27 +3927,27 @@ class BiomePresence():
             os.replace(tmp, final_path)
             try:
                 self._refresh_potion_files(pot_dir)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to refresh potion files after saving: %s", e)
             try:
                 if hasattr(self, "potion_file_var"):
                     self.potion_file_var.set(os.path.basename(final_path))
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to set potion file variable after saving: %s", e)
             try:
                 self.config["potion_last_file"] = os.path.basename(final_path)
                 self.save_config()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to save config after saving potion file: %s", e)
             try:
                 messagebox.showinfo("Potion Recorder", f"Saved: {os.path.basename(final_path)}")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to show potion save success message: %s", e)
         except Exception as e:
             try:
                 messagebox.showerror("Potion Recorder", f"Failed to save:\n{e}")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to show potion save error message: %s", e)
 
         try:
             self.potion_rec_events = []
@@ -3953,8 +3955,8 @@ class BiomePresence():
             self.potion_rec_events = []
         try:
             self.potion_rec_status.set("Ready")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to set potion recording status: %s", e)
 
     def _potion_thread_launcher(self, file_name, potions_directory="crafting_files_do_not_open", stop_after=None):
         try:
@@ -4065,8 +4067,8 @@ class BiomePresence():
                         k = ev.get("key")
                         if k not in ("f3", "f4"):
                             keyboard.release(k)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to handle potion event: %s", e)
                 last_t = t
             if stop_after is not None:
                 if time.perf_counter() - start_time >= float(stop_after):
@@ -4180,8 +4182,8 @@ class BiomePresence():
             else:
                 try:
                     self.auto_merchant_in_limbo_check.grid_remove()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to remove auto merchant in limbo check: %s", e)
 
         update_auto_merchant_in_limbo_visibility()
         try:
@@ -4189,8 +4191,8 @@ class BiomePresence():
         except Exception:
             try:
                 self.mt_var.trace('w', update_auto_merchant_in_limbo_visibility)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to add auto merchant in limbo visibility trace: %s", e)
 
         # Ping Mari
         self.ping_mari_var = ttk.BooleanVar(value=self.config.get("ping_mari", False))
@@ -4709,8 +4711,8 @@ class BiomePresence():
             if getattr(self, "_session_window_reset_performed", False):
                 try:
                     self.save_config()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.error(f"Error saving session time: {e}")
                 self._session_window_reset_performed = False
         except Exception as e:
             self.error_logging(e, "Error in update_session_time function.")
@@ -4901,8 +4903,8 @@ class BiomePresence():
                     token = self.remote_bot_token_var.get().strip() if hasattr(self, "remote_bot_token_var") else ""
                     if token:
                         self.start_remote_bot()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to start remote bot: %s", e)
             print("Biome detection started.")
 
     def stop_detection(self):
@@ -4935,8 +4937,8 @@ class BiomePresence():
             self._snowman_running = False
             try:
                 self.stop_remote_bot()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to stop remote bot: %s", e)
             self.send_macro_summary(last24h_seconds)
             print("closed", self.current_session)
             self.save_config()
@@ -5229,8 +5231,8 @@ class BiomePresence():
                     self.biome_history.append((now, biome))
                     if len(self.biome_history) > 300:
                         self.biome_history = self.biome_history[-300:]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to update biome history: %s", e)
                 if biome not in self.biome_counts: self.biome_counts[biome] = 0
                 self.biome_counts[biome] += 1
                 self.update_stats()
@@ -5244,8 +5246,8 @@ class BiomePresence():
                     try:
                         if getattr(self, "reset_on_rare_var", None) and self.reset_on_rare_var.get():
                             self._action_scheduler.enqueue_action(self._reset_on_rare_impl, name="reset_rare", priority=0)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to enqueue reset_rare action: %s", e)
 
                 if biome != "NORMAL":
                     self.send_webhook(biome, message_type, "start")
@@ -5254,8 +5256,8 @@ class BiomePresence():
                     try:
                         if getattr(self, "teleport_back_to_limbo_var", None) and self.teleport_back_to_limbo_var.get():
                             self._action_scheduler.enqueue_action(self._teleport_crack_impl, name="teleport_back", priority=0)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to enqueue teleport_back action: %s", e)
 
                 if biome == "GLITCHED":
                     with self.lock:
@@ -5339,8 +5341,8 @@ class BiomePresence():
                                     f"""Coteab Macro {current_ver} (Reconnecting)""")
                                 try:
                                     os.startfile(roblox_deep_link)
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    logging.exception("Failed to start roblox process: %s", e)
                                 time.sleep(36)
                                 if self.check_roblox_procs():
                                     self.send_webhook_status("Roblox opened. Loading into the games...", color=0x4aff65)
@@ -5384,8 +5386,8 @@ class BiomePresence():
             if reason and not getattr(self, 'has_sent_disconnected_message', False):
                 try:
                     self.send_webhook_status(reason, color=0xff0000)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to send webhook status for disconnect: %s", e)
                 self.has_sent_disconnected_message = True
             self.save_config()
         except Exception as e:
@@ -5398,8 +5400,8 @@ class BiomePresence():
                 self.timer_paused_by_disconnect = False
                 try:
                     delattr = False
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to delete attribute during reconnect: %s", e)
                 self.pause_reason = None
             else:
                 if not self.start_time:
@@ -5414,21 +5416,21 @@ class BiomePresence():
     def register_shutdown_handler(self):
         try:
             atexit.register(self._on_exit_handler)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to register shutdown handler: %s", e)
         try:
             import win32api, win32con
             def _handler(ctrl_type):
                 if ctrl_type in (win32con.CTRL_SHUTDOWN_EVENT, win32con.CTRL_LOGOFF_EVENT):
                     try:
                         self._pause_timer_for_disconnect("System Shutdown")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to pause timer for shutdown: %s", e)
                 return False
 
             win32api.SetConsoleCtrlHandler(_handler, True)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to register console control handler: %s", e)
 
     def fallback_reconnect(self, current_attempt):
         print(f"Attempting fallback reconnect from attempt {current_attempt}...")
@@ -5465,8 +5467,8 @@ class BiomePresence():
         try:
             if hasattr(self, "player_log_queue"):
                 self.player_log_queue.put(None)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to stop player log sender thread: %s", e)
 
     def _enqueue_player_embed(self, embed):
         if not hasattr(self, "player_log_queue") or self.player_log_queue is None:
@@ -5476,8 +5478,8 @@ class BiomePresence():
                 return
         try:
             self.player_log_queue.put(embed)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to enqueue player embed: %s", e)
 
     def _player_log_sender_loop(self):
         while getattr(self, "player_log_sender_running", False):
@@ -5503,10 +5505,10 @@ class BiomePresence():
                         time.sleep(retry)
                         try:
                             requests.post(webhook_url, json=payload, timeout=7)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to retry sending webhook: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to send player log webhook: %s", e)
             delay = getattr(self, "player_log_send_delay", 2.0)
             start = time.time()
             while (time.time() - start) < delay:
@@ -5724,13 +5726,13 @@ class BiomePresence():
 
         try:
             self._action_scheduler.enqueue_action(self.perform_periodic_aura_screenshot_sync, name="periodical:aura", priority=2)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to enqueue periodic aura screenshot sync: %s", e)
 
         try:
             self._action_scheduler.enqueue_action(self.perform_periodic_inventory_screenshot_sync, name="periodical:inventory", priority=3)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to enqueue periodic inventory screenshot sync: %s", e)
 
         if self.mt_var.get() and datetime.now() - self.last_mt_time >= mt_cooldown and not getattr(self,
                                                                                                     '_br_sc_running',
@@ -5794,8 +5796,8 @@ class BiomePresence():
                         self.Global_MouseClick(aura_menu[0], aura_menu[1])
                         time.sleep(0.67)
                         self.Global_MouseClick(search_bar[0], search_bar[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to perform periodic aura screenshot sync: %s", e)
                 time.sleep(0.67)
                 try:
                     os.makedirs("images", exist_ok=True)
@@ -5834,8 +5836,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(inventory_menu[0], inventory_menu[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to perform periodic inventory screenshot sync: %s", e)
                 time.sleep(0.35)
             if items_tab and items_tab[0]:
                 try:
@@ -5845,8 +5847,8 @@ class BiomePresence():
                 except Exception:
                     try:
                         self.Global_MouseClick(items_tab[0], items_tab[1])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to perform periodic inventory screenshot sync: %s", e)
                 time.sleep(0.35)
             try:
                 os.makedirs("images", exist_ok=True)
@@ -5864,8 +5866,8 @@ class BiomePresence():
                     except Exception:
                         try:
                             self.Global_MouseClick(inventory_close_button[0], inventory_close_button[1])
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to perform periodic inventory screenshot sync: %s", e)
                     time.sleep(0.22)
             except Exception as e:
                 self.error_logging(e, "Error while closing inventory after screenshot")
@@ -5899,8 +5901,8 @@ class BiomePresence():
                 except Exception as e:
                     try:
                         print(f"Failed to send inventory screenshot to {webhook_url}: {e}")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to send inventory screenshot to %s: %s", webhook_url, e)
         except Exception as e:
             self.error_logging(e, "Error in send_inventory_screenshot_webhook")
 
@@ -5931,8 +5933,8 @@ class BiomePresence():
                 except Exception as e:
                     try:
                         print(f"Failed to send aura screenshot to {webhook_url}: {e}")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to send aura screenshot to %s: %s", webhook_url, e)
         except Exception as e:
             self.error_logging(e, "Error in send_aura_screenshot_webhook")
 
@@ -5946,8 +5948,8 @@ class BiomePresence():
         except Exception:
             try:
                 self._use_br_sc_impl(item_name)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to enqueue use_br_sc action: %s", e)
 
     def _use_br_sc_impl(self, item_name):
         self._br_sc_running = True
@@ -6006,8 +6008,8 @@ class BiomePresence():
                     self.Global_MouseClick(inventory_close_button[0], inventory_close_button[1])
                     time.sleep(0.15 + inventory_click_delay)
                     return
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to check if first slot matches item: %s", e)
             self.Global_MouseClick(first_item_slot[0], first_item_slot[1])
             time.sleep(0.4 + inventory_click_delay)
             self.Global_MouseClick(first_item_slot[0], first_item_slot[1])
@@ -6053,8 +6055,8 @@ class BiomePresence():
         except Exception:
             try:
                 self._merchant_teleporter_impl()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to enqueue merchant_teleporter action: %s", e)
 
     def _merchant_teleporter_impl(self):
         if getattr(self, '_br_sc_running', False): return
@@ -6109,8 +6111,8 @@ class BiomePresence():
                     self.Global_MouseClick(inventory_close_button[0], inventory_close_button[1])
                     time.sleep(0.15 + inventory_click_delay)
                     return
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to check if first slot matches teleport item: %s", e)
             self.Global_MouseClick(first_item_slot[0], first_item_slot[1])
             time.sleep(0.4 + inventory_click_delay)
             self.Global_MouseClick(first_item_slot[0], first_item_slot[1])
@@ -6398,7 +6400,7 @@ class BiomePresence():
             description = f"> ## Biome Started - {biome} \nNo link provided (ManasAarohi ate the link blame him)" if event_type == "start" else f"> ### Biome Ended - {biome}"
         else:
             if biome_duration != 0:
-                description = f"> ## Biome Started - {biome} \n> ### Ends <t:{unix_stamp}:R> (approx.) \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
+                description = f"> ## Biome Started - {biome} \n> ### Ends <t:{unix_stamp}:R> (Unless stated otherwise) \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
             else:
                 description = f"> ## Biome Started - {biome} \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
         embed = {
@@ -6704,8 +6706,8 @@ class BiomePresence():
             for webhook_url in urls:
                 try:
                     requests.post(webhook_url, json=payload, timeout=5)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to send macro summary webhook to %s: %s", webhook_url, e)
         except Exception as e:
             self.error_logging(e, "Error in send_macro_summary")
 
@@ -6713,8 +6715,8 @@ class BiomePresence():
         self.config["first_item_slot_ocr_pos"] = region
         try:
             self.first_item_slot_ocr_label.config(text=str(region))
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to update first item slot OCR label: %s", e)
         self.save_config()
 
     def _ocr_first_slot_matches(self, expected):
@@ -6765,10 +6767,10 @@ class BiomePresence():
                     if proc.info['name'] in ['RobloxPlayerBeta.exe', 'Windows10Universal.exe'] and (
                             current_user is None or proc.info.get('username') == current_user):
                         pids.add(proc.info['pid'])
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as e:
+                    logging.exception("Failed to get process info: %s", e)
+        except Exception as e:
+            logging.exception("Failed to iterate processes: %s", e)
         hwnds = []
         try:
             def enum_cb(hwnd, lparam):
@@ -6778,13 +6780,13 @@ class BiomePresence():
                     tid, pid = win32process.GetWindowThreadProcessId(hwnd)
                     if pid in pids:
                         hwnds.append(hwnd)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to process window: %s", e)
                 return True
 
             win32gui.EnumWindows(enum_cb, None)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Failed to enumerate windows: %s", e)
         return hwnds
 
     def _focus_window_hwnd(self, hwnd, max_attempts=20, sleep_between=0.25):
@@ -6795,8 +6797,8 @@ class BiomePresence():
                 if win32gui.IsIconic(hwnd):
                     try:
                         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to restore window: %s", e)
                 fg = win32gui.GetForegroundWindow()
                 if fg == hwnd:
                     return True
@@ -6811,19 +6813,19 @@ class BiomePresence():
                         try:
                             ctypes.windll.user32.AttachThreadInput(current_tid, foreground_tid, True)
                             ctypes.windll.user32.AttachThreadInput(current_tid, target_tid, True)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to attach thread input: %s", e)
                         try:
                             win32gui.SetForegroundWindow(hwnd)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logging.exception("Failed to set foreground window: %s", e)
                         try:
                             ctypes.windll.user32.AttachThreadInput(current_tid, foreground_tid, False)
                             ctypes.windll.user32.AttachThreadInput(current_tid, target_tid, False)
-                        except Exception:
-                            pass
-                    except Exception:
-                        pass
+                        except Exception as e:
+                            logging.exception("Failed to detach thread input: %s", e)
+                    except Exception as e:
+                        logging.exception("Failed to get foreground window: %s", e)
                 time.sleep(sleep_between)
                 if win32gui.GetForegroundWindow() == hwnd:
                     return True
@@ -6832,10 +6834,10 @@ class BiomePresence():
                     if title:
                         try:
                             autoit.win_activate(title)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as e:
+                            logging.exception("Failed to activate window: %s", e)
+                except Exception as e:
+                    logging.exception("Failed to get window text: %s", e)
                 time.sleep(sleep_between)
                 if win32gui.GetForegroundWindow() == hwnd:
                     return True
@@ -6843,13 +6845,13 @@ class BiomePresence():
                     pyautogui.keyDown('alt')
                     pyautogui.press('tab')
                     pyautogui.keyUp('alt')
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to simulate key press: %s", e)
                 time.sleep(sleep_between)
                 if win32gui.GetForegroundWindow() == hwnd:
                     return True
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to set foreground window: %s", e)
         return win32gui.GetForegroundWindow() == hwnd
 
     def perform_anti_afk_action(self):
@@ -6881,8 +6883,8 @@ class BiomePresence():
                                     h = win32gui.FindWindow(None, t)
                                     if h:
                                         roblox_hwnds.append(h)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logging.exception("Failed to get window handle: %s", e)
             if not roblox_hwnds:
                 return
             target = roblox_hwnds[0]
@@ -6899,8 +6901,8 @@ class BiomePresence():
             except Exception:
                 try:
                     pyautogui.press("space", presses=3, interval=0.06)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to simulate key press: %s", e)
             time.sleep(0.15)
             if hwnd_before and hwnd_before != win32gui.GetForegroundWindow():
                 try:
@@ -6911,13 +6913,13 @@ class BiomePresence():
                             wins = gw.getWindowsWithTitle(title_before)
                             if wins:
                                 wins[0].activate()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.exception("Failed to activate window: %s", e)
         except Exception as e:
             try:
                 self.error_logging(e, "Error in anti-afk")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Error in anti-afk: %s", e)
 
     def anti_afk_loop(self):
         interval = 6.7 * 60  # 67 TUFF
@@ -6930,8 +6932,8 @@ class BiomePresence():
             except Exception as e:
                 try:
                     self.error_logging(e, "Error in anti_afk_loop")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Error in anti_afk_loop: %s", e)
 
     def autoit_hold_left_click(self, posX, posY, holdTime=1):
         for _ in range(5):
@@ -6981,8 +6983,8 @@ class BiomePresence():
         except Exception:
             try:
                 self._auto_pop_buffs_impl()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to auto-pop buffs: %s", e)
 
     def _auto_pop_buffs_impl(self):
         try:
@@ -7059,8 +7061,8 @@ class BiomePresence():
                         self.Global_MouseClick(inventory_close_button[0], inventory_close_button[1])
                         time.sleep(0.15 + inventory_click_delay)
                         continue
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.exception("Failed to check first slot match: %s", e)
                 amount_box = self.config.get("amount_box", [594, 570])
                 self.Global_MouseClick(amount_box[0], amount_box[1])
                 time.sleep(0.22 + inventory_click_delay)
@@ -7132,8 +7134,8 @@ finally:
                     bp.stop_sent = True
                     bp.send_macro_summary(last24h_seconds)
                     bp.save_config()
-    except Exception:
-        pass
+    except Exception as e:
+        logging.exception("Error in main loop: %s", e)
     finally:
         keyboard.unhook_all()
 
