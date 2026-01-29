@@ -1092,7 +1092,7 @@ class BiomePresence():
         if dont_ask_again: return
 
         try:
-            response = requests.get("https://api.github.com/repos/xVapure/Noteab-Macro/releases/latest")
+            response = requests.get("https://api.github.com/repos/xVapure/Noteab-Macro/releases/latest", timeout = 30)
             response.raise_for_status()
             latest_release = response.json()
             latest_version = latest_release['tag_name']
@@ -1119,7 +1119,7 @@ class BiomePresence():
 
             if not save_path: return
 
-            response = requests.get(download_url)
+            response = requests.get(download_url, timeout = 30)
             response.raise_for_status()
 
             with open(save_path, 'wb') as file:
@@ -4223,7 +4223,7 @@ class BiomePresence():
                 messagebox.showwarning("Download Cancelled", "No file path selected. Download cancelled.")
                 return
 
-            response = requests.get(download_url)
+            response = requests.get(download_url, timeout = 30)
             response.raise_for_status()
 
             with open(save_path, 'wb') as file:
@@ -6366,7 +6366,7 @@ class BiomePresence():
         }
         for webhook_url in urls:
             try:
-                response = requests.post(webhook_url, json=payload)
+                response = requests.post(webhook_url, json=payload, timeout = 30)
                 response.raise_for_status()
                 print(f"[Line 1744] Sent {message_type} for {biome} - {event_type} to {webhook_url}")
             except requests.exceptions.RequestException as e:
@@ -6427,7 +6427,8 @@ class BiomePresence():
                                     "embeds": [embed]
                                 })
                             },
-                            files=files
+                            files=files,
+                            timeout = 30
                         )
                         try:
                             response.raise_for_status()
@@ -6439,7 +6440,7 @@ class BiomePresence():
                 payload = {"content": content, "embeds": [embed]}
                 for webhook_url in urls:
                     try:
-                        response = requests.post(webhook_url, json=payload)
+                        response = requests.post(webhook_url, json=payload, timeout = 30)
                         response.raise_for_status()
                         print(f"Webhook sent successfully for {merchant_name} to {webhook_url}: {response.status_code}")
                     except requests.exceptions.RequestException as e:
@@ -6501,7 +6502,7 @@ class BiomePresence():
         payload = {"content": content, "embeds": [embed]}
         for webhook_url in urls:
             try:
-                response = requests.post(webhook_url, json=payload)
+                response = requests.post(webhook_url, json=payload, timeout = 30)
                 response.raise_for_status()
                 print(f"Eden webhook sent to {webhook_url}")
             except requests.exceptions.RequestException as e:
