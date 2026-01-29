@@ -2,3 +2,4 @@ macro_logs.txt
 config.json
 /.idea
 config.json
+/python_src/__pycache__
