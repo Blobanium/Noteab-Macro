@@ -5820,7 +5820,16 @@ class BiomePresence():
         except Exception as e:
             self.error_logging(e, "Error in perform_periodic_inventory_screenshot_sync")
 
-    def send_inventory_screenshot_webhook(self, screenshot_path):
+    def send_inventory_aura_screenshot_webhook(self, screenshot_path, isInv):
+        if isInv:
+            embed_desc = f"> ## Periodical Inventory Screenshot"
+            error_2 = f"Failed to send inventory screenshot to %s: %s"
+            error_3 = "Error in send_inventory_screenshot_webhook"
+        else:
+            embed_desc = f"> ## Periodical Inventory Aura Screenshot"
+            error_2 = f"Failed to send aura screenshot to %s: %s"
+            error_3 = "Error in send_aura_screenshot_webhook"
+
         try:
             urls = self.get_webhook_list()
             if not urls:
@@ -5831,7 +5840,7 @@ class BiomePresence():
             current_utc_time.replace(microsecond=0).isoformat(timespec='seconds') + 'Z'
             current_utc_time = str(current_utc_time)
             embed = {
-                "description": f"> ## Periodical Inventory Screenshot",
+                "description": embed_desc,
                 "color": 0xffffff,
                 "footer": {"text": f"Coteab Macro {current_ver}", "icon_url": icon_url},
                 "timestamp": current_utc_time
@@ -5845,44 +5854,24 @@ class BiomePresence():
                         data = {"payload_json": json.dumps({"content": content, "embeds": [embed_copy]})}
                         requests.post(webhook_url, data=data, files=files, timeout=10)
                 except Exception as e:
+                    if(isInv):
+                        error_1 = f"Failed to send inventory screenshot to {webhook_url}: {e}"
+                    else:
+                        error_1 = f"Failed to send aura screenshot to {webhook_url}: {e}"
                     try:
-                        print(f"Failed to send inventory screenshot to {webhook_url}: {e}")
+                        print(error_1 % webhook_url)
                     except Exception as e:
-                        logging.exception("Failed to send inventory screenshot to %s: %s", webhook_url, e)
+                        logging.exception(error_2, webhook_url, e)
         except Exception as e:
-            self.error_logging(e, "Error in send_inventory_screenshot_webhook")
+            self.error_logging(e, error_3)
+
+
+
+    def send_inventory_screenshot_webhook(self, screenshot_path):
+        self.send_inventory_aura_screenshot_webhook(screenshot_path, True)
 
     def send_aura_screenshot_webhook(self, screenshot_path):
-        try:
-            urls = self.get_webhook_list()
-            if not urls:
-                return
-            content = ""
-            icon_url = "https://i.postimg.cc/rsXpGncL/Noteab-Biome-Tracker.png"
-            current_utc_time = datetime.now(timezone.utc)
-            current_utc_time.replace(microsecond=0).isoformat(timespec='seconds') + 'Z'
-            current_utc_time = str(current_utc_time)
-            embed = {
-                "description": f"> ## Periodical Aura Screenshot",
-                "color": 0xffffff,
-                "footer": {"text": f"Coteab Macro {current_ver}", "icon_url": icon_url},
-                "timestamp": current_utc_time
-            }
-            for webhook_url in urls:
-                try:
-                    embed_copy = dict(embed)
-                    embed_copy["image"] = {"url": f"attachment://{os.path.basename(screenshot_path)}"}
-                    with open(screenshot_path, "rb") as image_file:
-                        files = {"file": (os.path.basename(screenshot_path), image_file, "image/png")}
-                        data = {"payload_json": json.dumps({"content": content, "embeds": [embed_copy]})}
-                        requests.post(webhook_url, data=data, files=files, timeout=10)
-                except Exception as e:
-                    try:
-                        print(f"Failed to send aura screenshot to {webhook_url}: {e}")
-                    except Exception as e:
-                        logging.exception("Failed to send aura screenshot to %s: %s", webhook_url, e)
-        except Exception as e:
-            self.error_logging(e, "Error in send_aura_screenshot_webhook")
+        self.send_inventory_aura_screenshot_webhook(screenshot_path, False)
 
     def Global_MouseClick(self, x, y, click=1):
         time.sleep(0.335)
