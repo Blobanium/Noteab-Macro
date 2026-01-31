@@ -6292,7 +6292,7 @@ class BiomePresence():
             "NORMAL": 0,
             "WINDY": 120,
             "RAINY": 120,
-            "SNOWY": 0,
+            "SNOWY": 120,
             "SAND STORM": 650,
             "HELL": 666,
             "STARFALL": 600,
@@ -6325,7 +6325,7 @@ class BiomePresence():
         current_utc_time.replace(microsecond=0).isoformat(timespec='seconds') + 'Z'
         current_utc_time = str(current_utc_time)
         unix_stamp = str(int(time.time() + biome_duration))
-        print(unix_stamp)
+        biome_count = self.biome_counts[biome]
         icon_url = "https://i.postimg.cc/rsXpGncL/Noteab-Biome-Tracker.png"
         content = ""
         if event_type == "start" and biome in rare_biomes:
@@ -6335,7 +6335,7 @@ class BiomePresence():
             description = f"> ## Biome Started - {biome} \nNo link provided (ManasAarohi ate the link blame him)" if event_type == "start" else f"> ### Biome Ended - {biome}"
         else:
             if biome_duration != 0:
-                description = f"> ## Biome Started - {biome} \n> ### Ends <t:{unix_stamp}:R> (Unless stated otherwise) \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
+                description = f"> ## Biome Started - {biome} \n> ### Ends <t:{unix_stamp}:R> (Unless stated otherwise) \n> ### #{biome_count} - **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
             else:
                 description = f"> ## Biome Started - {biome} \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
         embed = {
