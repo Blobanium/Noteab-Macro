@@ -6335,7 +6335,7 @@ class BiomePresence():
             description = f"> ## Biome Started - {biome} \nNo link provided (ManasAarohi ate the link blame him)" if event_type == "start" else f"> ### Biome Ended - {biome}"
         else:
             if biome_duration != 0:
-                description = f"> ## Biome Started - {biome} \n> ### Ends <t:{unix_stamp}:R> (Unless stated otherwise) \n> ### #{biome_count} - **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
+                description = f"> ## Biome Started - {biome} \n> ### Ends <t:{unix_stamp}:R> (Unless stated otherwise) \n> ### \#{biome_count} - **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
             else:
                 description = f"> ## Biome Started - {biome} \n> ### **[Join Server]({private_server_link})**" if event_type == "start" else f"> ### Biome Ended - {biome}"
         embed = {
