@@ -12,7 +12,7 @@ import json, requests, time, os, threading, re, webbrowser, random, keyboard, py
 
 from python_src.snipping_widget import SnippingWidget
 
-current_ver = "v2.0.5-hotfix1 (Modded)"
+current_ver = "v2.0.5-hotfix2 (Modded)"
 
 
 def apply_fast_flags(version=None, force=False):
